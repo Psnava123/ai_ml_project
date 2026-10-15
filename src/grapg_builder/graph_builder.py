@@ -47,6 +47,9 @@ class GraphBuilder:
         # self.graph = builder.compile(checkpointer=memory)
         self.graph=self.nodes._build_agent()
         return self.graph
+    def get_retrieve_docs(self):
+        "for getting my retrieve docs form app"
+        return self.nodes.my_doc_bucket
     
     def run(self, question: str,config) -> dict:
         """

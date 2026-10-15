@@ -12,6 +12,7 @@ from src.config.config import Config
 from src.document_ingesition.document_processor import documentprocessor
 from src.vector_store.vectorstore import Vectorstore
 from src.grapg_builder.graph_builder import GraphBuilder
+from src.nodes.reactnodes import RAGNodes
 
 # Page configuration
 st.set_page_config(
@@ -112,7 +113,7 @@ def main():
                 
                 elapsed_time = time.time() - start_time
                 final_text =getattr(result["messages"][-1],'text')
-                result['retrieved_docs']=
+                result['retrieved_docs']=st.session_state.rag_system.get_retrieve_docs()
                 # Add to history
                 st.session_state.history.append({
                         'question': question,

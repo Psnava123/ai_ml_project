@@ -41,6 +41,7 @@ class RAGNodes:
                 return "No documents found."
             merged = []
             self.my_doc_bucket=docs
+            print(f"\\n  this is my docs {len(self.my_doc_bucket)}\\n",flush=True)
             for i, d in enumerate(docs[:8], start=1):
                 meta = d.metadata if hasattr(d, "metadata") else {}
                 title = meta.get("title") or meta.get("source") or f"doc_{i}"
@@ -49,12 +50,37 @@ class RAGNodes:
 
         retriever_tool = Tool(
             name="retriever",
-            description=" for Fetch passages from indexed corpus. topic covered Exploring LLM powered autonomous agents and diffusion models for video generation.",
+            description="ALWAYS use this tool FIRST before any other search tool when the query relates to AI, LLMs, agents, memory, search algorithms, or video/image generation. Fetches passages from Lilian Weng's indexed articles covering two main domains 1st-LLM-Powered Autonomous Agents: Planning, Task Decomposition, Chain of Thought (CoT), Tree of Thoughts (ToT), LLM+P, PDDL, Self-Reflection, ReAct, Reflexion, Chain of Hindsight (CoH), Algorithm Distillation (AD), Sensory/Short-Term/Long-Term Memory, MIPS, Approximate Nearest Neighbors (ANN), LSH, ANNOY, HNSW, FAISS, ScaNN, Tool Use, MRKL, TALM, Toolformer, API-Bank, HuggingGPT, Gorilla, ChemCrow, Generative Agents, AutoGPT, and GPT-Engineer.2nd Diffusion Models for Video Generation: DDIM, v-parameterization, reconstruction guidance, Video Diffusion Models (VDM), 3D U-Net, Diffusion Transformer (DiT), Sora, Imagen Video, Spatial/Temporal Super-Resolution (SSR/TSR), Make-A-Video, Tune-A-Video, Pseudo-3D convolution/attention, ST-Attention, Video LDM, AnimateDiff, Text2Video-Zero, and ControlVideo.",
             func=retriever_tool_fn,
         )
+        
 
         tavily_tool = TavilySearchResults(max_results=3)
-        return [retriever_tool, tavily_tool]
+
+        def tavily_search_context(query: str) -> str:
+            print("calling tavily search tool.................")
+            results = tavily_tool.invoke({"query": query})
+            if not results:
+             return "No web search results found."
+        
+            # If Tavily already returns a string (e.g., an error message), return it directly
+            if isinstance(results, str):
+                return results
+        
+            # Combine all 3 dictionary results into one clean string
+            context_parts = []
+            for i, doc in enumerate(results, 1):
+                url = doc.get("url", "No URL")
+                content = doc.get("content", "")
+                context_parts.append(f"Source {i} ({url}):\n{content}")
+        
+            return "\n\n-\n\n".join(context_parts)
+        tavly_search_tool=Tool(
+                name="tavely_search",
+                description= "Use this tool ONLY as a backup for web search when the query is NO about LLM autonomous agents, memory, or video diffusion models. Returns a single string with the entire context of the search results.",
+                func=tavily_search_context,
+            )
+        return [retriever_tool,tavly_search_tool]
 
     def _build_agent(self):
         """ReAct agent with tools"""
@@ -68,6 +94,7 @@ class RAGNodes:
         )
         self._agent = create_react_agent(self.llm, tools=tools,prompt=system_prompt,checkpointer=memory)
         return self._agent
+    
 
     def generate_answer(self, state: RAGState) -> RAGState:
         """
