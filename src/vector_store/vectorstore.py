@@ -22,7 +22,12 @@ class Vectorstore:
         """
         
         self.vectorstore=FAISS.from_documents(documents=documents,embedding=self.embedding)
-        self.retriever=self.vectorstore.as_retriever()
+        self.retriever=self.vectorstore.as_retriever( search_type="similarity_score_threshold",
+                search_kwargs={
+                    "k": 2,                  # Grab at most 2 chunks instead of 4 or 5
+                    "score_threshold": 0.75  # Ignore weak matches!
+                }
+        )      
     def get_retriever(self):
         """
         Get the retriever instance

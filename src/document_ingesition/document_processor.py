@@ -17,7 +17,7 @@ import re
 
 class documentprocessor:
     """Handles document loading and processing"""
-    def __init__(self,chunk_size=700,chunk_overlap=50):
+    def __init__(self,chunk_size=900,chunk_overlap=80):
         """
         Initialize document processor
         

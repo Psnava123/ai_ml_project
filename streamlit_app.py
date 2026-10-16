@@ -7,6 +7,7 @@ import time
 
 # Add src to path
 sys.path.append(str(Path(__file__).parent))
+from langchain_core.callbacks import UsageMetadataCallbackHandler
 
 from src.config.config import Config
 from src.document_ingesition.document_processor import documentprocessor
@@ -91,7 +92,11 @@ def main():
                 st.session_state.rag_system = rag_system
                 st.session_state.initialized = True
                 st.success(f"✅ System ready! ({num_chunks} document chunks loaded)")
-    
+    # Display the LangGraph workflow diagram
+    if st.session_state.rag_system:
+        with st.expander("🗺️ View Agentic Graph Workflow"):
+            graph_png = st.session_state.rag_system.graph.get_graph().draw_mermaid_png()
+            st.image(graph_png, caption="Agentic RAG Architecture")
     st.markdown("---")
     
     # Search interface
@@ -134,9 +139,22 @@ def main():
                             height=100,
                             disabled=True
                         )
+                # 1. Create the token counter callback and add it to your config
+                token_callback = UsageMetadataCallbackHandler()
+                my_config = {
+                    "configurable": {"thread_id": "chat_with_purnava123"},
+                    "callbacks": [token_callback]
+                }
                 
-                st.caption(f"⏱️ Response time: {elapsed_time:.2f} seconds")
-    
+                result = st.session_state.rag_system.run(question, my_config)
+                
+                # 2. Calculate total tokens used across all LLM calls in this query
+                total_tokens = sum(
+                    usage.get("total_tokens", 0) 
+                    for usage in token_callback.usage_metadata.values()
+                )
+                
+                st.caption(f"⏱️ Response time: {elapsed_time:.2f} seconds | 🪙 Total Tokens: {total_tokens}")    
     # Show history
     if st.session_state.history:
         st.markdown("---")

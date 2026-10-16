@@ -22,34 +22,53 @@ class GraphBuilder:
         self.graph = None
     
     def build(self):
-        """
-        Build the RAG workflow graph
-        
-        Returns:
-            Compiled graph instance
-        """
-        # Create state graph
-        
-        # builder = StateGraph(RAGState)
-        
-        # # Add nodes
-        # # builder.add_node("retriever", self.nodes.retrieve_docs)
-        # builder.add_node("responder", self.nodes.generate_answer)
-        
-        # # Set entry point
-        # builder.set_entry_point("responder")
-        
-        # # Add edges
-        # builder.add_edge(" "responder")
-        # builder.add_edge("responder", END)
-        
-        # # Compile graph
-        # self.graph = builder.compile(checkpointer=memory)
-        self.graph=self.nodes._build_agent()
-        return self.graph
+       workflow=StateGraph(RAGState)
+       workflow.add_node("query_analyzer",self.nodes.query_analyzer)
+       workflow.add_node("tool_node",self.nodes.tool_node)
+       workflow.add_node("validate_context",self.nodes.validate_context)
+       workflow.add_node("rewrite_query",self.nodes.rewrite_query)
+       workflow.add_node("generate_answer", self.nodes.generate_answer)
+       workflow.set_entry_point("query_analyzer")
+       
+       def route_from_analyzer(state: RAGState):
+        if state.get("needs_tool") == "yes":
+            return "yes"
+        return "no"
+       workflow.add_conditional_edges("query_analyzer",route_from_analyzer,{
+            "yes": "tool_node",
+            "no": "generate_answer",
+        },)
+       workflow.add_edge("tool_node", "validate_context")
+
+        # 5. Validate Context Router ("yes" -> LLM Generate Answer, "no" -> Rewrite Query)
+       def route_from_validator(state: RAGState):
+        if state.get("is_usable") == "yes" or state.get("retry_count", 0) >= 2:
+            return "yes"
+        return "no"
+    
+       workflow.add_conditional_edges("validate_context",route_from_validator,
+            {
+                "yes": "generate_answer",
+                "no": "rewrite_query",
+            },
+            )
+       workflow.add_edge("rewrite_query", "query_analyzer")
+
+        # 7. LLM Generate Answer -> END
+       workflow.add_edge("generate_answer", END)
+
+        # 8. ADD CHECKPOINTER HERE!
+       memory = MemorySaver()
+       self.graph = workflow.compile(checkpointer=memory)
+       return self.graph
+
+
+       
     def get_retrieve_docs(self):
         "for getting my retrieve docs form app"
-        return self.nodes.my_doc_bucket
+        docs=self.nodes.my_doc_bucket
+        self.nodes.my_doc_bucket=[]
+        return docs
     
     def run(self, question: str,config) -> dict:
         """
