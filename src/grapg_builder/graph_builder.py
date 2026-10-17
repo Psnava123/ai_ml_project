@@ -64,10 +64,10 @@ class GraphBuilder:
 
 
        
-    def get_retrieve_docs(self):
+    def get_reset_retrieve_docs(self):
         "for getting my retrieve docs form app"
-        docs=self.nodes.my_doc_bucket
-        self.nodes.my_doc_bucket=[]
+        docs = self.nodes.my_doc_bucket.copy()
+        self.nodes.my_doc_bucket.clear()
         return docs
     
     def run(self, question: str,config) -> dict:

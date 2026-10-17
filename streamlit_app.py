@@ -111,50 +111,47 @@ def main():
     if submit and question:
         if st.session_state.rag_system:
             with st.spinner("Searching..."):
+                token_callback = UsageMetadataCallbackHandler()
+                my_config = {
+                    "configurable": {"thread_id": "chat_with_purnava123"},
+                    "callbacks": [token_callback]
+                }
                 start_time = time.time()
-                
-                my_config = {"configurable": {"thread_id": "chat_with_purnava123"}}
-                result = st.session_state.rag_system.run(question,my_config)
-                
+                result = st.session_state.rag_system.run(question, my_config)
                 elapsed_time = time.time() - start_time
+                
+                total_tokens = sum(
+                usage.get("total_tokens", 0) 
+                for usage in token_callback.usage_metadata.values()
+                )
                 final_text =getattr(result["messages"][-1],'text')
-                result['retrieved_docs']=st.session_state.rag_system.get_retrieve_docs()
+                
+                result['retrieved_docs']=st.session_state.rag_system.get_reset_retrieve_docs()
                 # Add to history
                 st.session_state.history.append({
                         'question': question,
                         'answer': final_text,
-                        'time': elapsed_time
+                        'time': elapsed_time,
+                        'tokens': total_tokens
+                        
                     })
                 
                 # Display answer
                 st.markdown("### 💡 Answer")
                 st.success(final_text)
+                st.caption(f"⏱️ Response time: {elapsed_time:.2f} seconds | 🪙 Total Tokens: {total_tokens}")
                 
                 # Show retrieved docs in expander
                 with st.expander("📄 Source Documents"):
                     for i, doc in enumerate(result['retrieved_docs'], 1):
                         st.text_area(
                             f"Document {i}",
-                            doc.page_content[:300] + "...",
-                            height=100,
+                            doc.page_content[:500] + "...",
+                            height=150,
                             disabled=True
                         )
-                # 1. Create the token counter callback and add it to your config
-                token_callback = UsageMetadataCallbackHandler()
-                my_config = {
-                    "configurable": {"thread_id": "chat_with_purnava123"},
-                    "callbacks": [token_callback]
-                }
                 
-                result = st.session_state.rag_system.run(question, my_config)
-                
-                # 2. Calculate total tokens used across all LLM calls in this query
-                total_tokens = sum(
-                    usage.get("total_tokens", 0) 
-                    for usage in token_callback.usage_metadata.values()
-                )
-                
-                st.caption(f"⏱️ Response time: {elapsed_time:.2f} seconds | 🪙 Total Tokens: {total_tokens}")    
+                    
     # Show history
     if st.session_state.history:
         st.markdown("---")
@@ -164,7 +161,7 @@ def main():
             with st.container():
                 st.markdown(f"**Q:** {item['question']}")
                 st.markdown(f"**A:** {item['answer'][:200]}...")
-                st.caption(f"Time: {item['time']:.2f}s")
+                st.caption(f"Time: {item['time']:.2f}s Tokens: {item['tokens']}")
                 st.markdown("")
 
 if __name__ == "__main__":
