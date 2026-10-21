@@ -15,5 +15,6 @@ class RAGState(TypedDict):
     query: Optional[str]                 # The user question (original or rewritten)
     tool_output_string: Optional[str]    # The string output from the Tool Node
     needs_tool: Optional[str]            # "yes" or "no" from Query Analyzer
+    tool_name: Optional[str]
     is_usable: Optional[str]             # "yes" or "no" from Validate Context
     retry_count: Optional[int]           # Safety counter so it does not loop forever

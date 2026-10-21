@@ -67,7 +67,7 @@ class GraphBuilder:
     def get_reset_retrieve_docs(self):
         "for getting my retrieve docs form app"
         docs = self.nodes.my_doc_bucket.copy()
-        self.nodes.my_doc_bucket.clear()
+       
         return docs
     
     def run(self, question: str,config) -> dict:
@@ -82,8 +82,8 @@ class GraphBuilder:
         """
         if self.graph is None:
             self.build()
+        self.nodes.my_doc_bucket.clear()
         
-        
-        # Package your string into a real message object
+        # Pa ckage your string into a real message object
         new_input = {"messages": [HumanMessage(content=question)]}
         return self.graph.invoke(new_input,config=config)

@@ -4,8 +4,8 @@ import streamlit as st
 from pathlib import Path
 import sys
 import time
-
-# Add src to path
+from dotenv import load_dotenv
+import os
 sys.path.append(str(Path(__file__).parent))
 from langchain_core.callbacks import UsageMetadataCallbackHandler
 
@@ -14,6 +14,8 @@ from src.document_ingesition.document_processor import documentprocessor
 from src.vector_store.vectorstore import Vectorstore
 from src.grapg_builder.graph_builder import GraphBuilder
 from src.nodes.reactnodes import RAGNodes
+import os
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 # Page configuration
 st.set_page_config(
@@ -21,6 +23,7 @@ st.set_page_config(
     page_icon="🔍",
     layout="centered"
 )
+
 
 # Simple CSS
 st.markdown("""

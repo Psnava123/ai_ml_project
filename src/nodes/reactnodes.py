@@ -14,15 +14,13 @@ from typing import Literal
 from langchain_core.tools import StructuredTool
 from langchain_core.language_models.chat_models import BaseChatModel
 
-class YesNoDecision(BaseModel):
-    """Pydantic model that forces the LLM to reply with ONLY 'yes' or 'no'."""
-    decision: Literal["yes", "no"] 
+class ValidateAndAnswer(BaseModel):
+    answer: Optional[str] = None
 
 
 
-class ToolChoice(BaseModel):
-    """Pydantic model to pick which tool to run inside the Tool Node."""
-    tool_name: Literal["retriever", "tavily_search"] 
+class AnalyzerDecision(BaseModel):
+    tool_name: Literal["retriever", "tavily_search", "none"]
        
 
 class RAGNodes:
@@ -90,47 +88,40 @@ class RAGNodes:
                 func=tavily_search_context,
             )
         return [retriever_tool,tavly_search_tool]
-    def query_analyzer(self,state:RAGState)->dict:
-        """
-        Decides if the question needs the Tool Node.
-        - 'yes' -> Go to Tool Node
-        - 'no'  -> Go straight to LLM Node
-        """
-        
-        # Look for the rewritten query first! If there isn't one yet, use the original message:
+    def query_analyzer(self, state: RAGState) -> dict:
+        """Picks the tool in 1 step; Python figures out needs_tool for free."""
         query = state.get("query") or state["messages"][-1].content
-        analyzer_llm = self.llm.with_structured_output(YesNoDecision)
+        analyzer_llm = self.llm.with_structured_output(AnalyzerDecision)
+        
         prompt = (
-                    "Reply ONLY 'yes' or 'no'.\n"
-                    "yes = needs docs (AI agents, diffusion video,video/image generation) or live web search (news, current events, unknown facts).\n"
-                    "no = greetings, casual chat, or basic static facts (capitals, math,coading, famous history).\n"
-                    f"Q: {query}"
-                )
-        result:YesNoDecision=analyzer_llm.invoke([HumanMessage(content=prompt)])
-        print(f"Needs Tool Decision (yes/no): {result.decision}")
-        return{"query": query,
-            "needs_tool": result.decision,
+            "Route Q to a tool:\n"
+            "- retriever: AI, LLMs, agents, memory, video/image diffusion\n"
+            "- tavily_search: live news, current events, unknown facts\n"
+            "- none: greetings, chat, math, coding, basic facts\n"
+            f"Q: {query}"
+        )
+        
+        result: AnalyzerDecision = analyzer_llm.invoke([HumanMessage(content=prompt)])
+        
+        # Python decides 'yes' or 'no' using 0 tokens!
+        needs_tool = "no" if result.tool_name == "none" else "yes"
+        print(f"Needs Tool: {needs_tool} | Chosen Tool: {result.tool_name}")
+        
+        return {
+            "query": query,
+            "needs_tool": needs_tool,
+            "tool_name": result.tool_name,
             "retry_count": state.get("retry_count", 0),
-            }
+        }
     def tool_node(self,state:RAGState)->dict:
         """Picks a tool using Pydantic, runs it, and returns a single string."""
         query=state["query"]
-        tool_llm=self.llm.with_structured_output(ToolChoice)
-        choice:ToolChoice=tool_llm.invoke(
-            [
-                HumanMessage(
-                    content=(
-                        "Which tool should search for this query?\n"
-                        "- Choose 'retriever' for AI, LLMs, autonomous agents, memory, or video diffusion.\n"
-                        "- Choose 'tavily_search' for anything else.\n\n"
-                        f"Query: {query}"
-                    )
-                )
-            ]
-         )
+        chosen_tool_name = state.get("tool_name", "retriever")
+        if chosen_tool_name not in self.tool_map:
+            chosen_tool_name = "retriever"
         
-        final_tool=self.tool_map[choice.tool_name]
-        print(f"Running Tool: {choice.tool_name} | Query: {query}")
+        final_tool=self.tool_map[chosen_tool_name]
+        print(f"Running Tool: {chosen_tool_name} | Query: {query}")
         tool_output_string=final_tool.invoke(query)
         output_string: str = str(tool_output_string)
         

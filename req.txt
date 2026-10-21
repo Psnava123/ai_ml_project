@@ -12,3 +12,5 @@ streamlit
 wikipedia
 ipykernel
 pypdf
+langgraph-cli[inmem]
+langsmith

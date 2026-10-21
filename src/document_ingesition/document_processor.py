@@ -58,16 +58,23 @@ class documentprocessor:
         for src in source:
             if src.startswith("http://") or src.startswith("https://"):
                 docs.extend(self.load_form_url(src))
-            path=Path("data")
-            if path.exists():
-              docs.extend(self.load_form_pdf_dir(path))
-            elif path.suffix.lower()==".txt":
-                docs.extend(self.load_form_text(path))
             else:
-                raise ValueError(
-                    f"Unsupported source type: {src}. "
-                    "Use URL, .txt file, or PDF directory."
-                )
+                path=Path(src)
+                if path.exists():
+                  docs.extend(self.load_form_pdf_dir(path))
+                elif path.suffix.lower()==".txt":
+                    docs.extend(self.load_form_text(path))
+                else:
+                    raise ValueError(
+                        f"Unsupported source type: {src}. "
+                        "Use URL, .txt file, or PDF directory."
+                    )
+        project_root = Path(__file__).resolve().parent.parent.parent
+        data_dir = project_root / "data"
+        if data_dir.exists() and data_dir.is_dir():
+            docs.extend(self.load_form_pdf_dir(data_dir))
+            
+        
         clean_docs:List[Document]=[]
         for doc in docs:
             text = doc.page_content
